@@ -11,7 +11,11 @@ export enum GameEvent {
   ENEMY_DESTROYED = 'enemy_destroyed',
   SCORE_CHANGED = 'score_changed',
   PLAYER_DIED = 'player_died',
-  ENEMY_SPAWNED = 'enemy_spawned'
+  ENEMY_SPAWNED = 'enemy_spawned',
+  PLAYER_DAMAGED = 'player_damaged',
+  PLAYER_HEALED = 'player_healed',
+  HEALTH_CHANGED = 'health_changed',
+  INTRO_COMPLETE = 'intro_complete'
 }
 
 class EventBus {

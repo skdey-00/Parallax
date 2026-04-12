@@ -3,6 +3,9 @@ import { SoundGenerator } from '../audio/SoundGenerator.js';
 import { AudioManager } from '../audio/AudioManager.js';
 import { MusicGenerator } from '../audio/MusicGenerator.js';
 import { ScoreInfo } from '../systems/ScoringSystem.js';
+import { HealthState } from '../systems/HealthSystem.js';
+import { ActivePowerUp } from '../systems/PowerUpSystem.js';
+import { AbilityState } from '../systems/AbilitySystem.js';
 
 /**
  * ADDICTIVE HUD - Shows combos, multipliers, streaks, milestones
@@ -37,6 +40,21 @@ export class HUD {
   private killFeed!: HTMLElement;
   private floatingTexts: HTMLElement[] = [];
 
+  // HEALTH SYSTEM
+  private healthContainer!: HTMLElement;
+  private healthBar!: HTMLElement;
+  private healthHearts!: HTMLElement[];
+  private currentHealth: number = 3;
+  private maxHealth: number = 3;
+
+  // POWER-UP SYSTEM
+  private powerUpContainer!: HTMLElement;
+  private activePowerUps: Map<string, HTMLElement> = new Map();
+
+  // ABILITY SYSTEM
+  private abilityContainer!: HTMLElement;
+  private abilityIcons: Map<string, HTMLElement> = new Map();
+
   // Current state
   private currentCombo: number = 0;
   private currentMultiplier: number = 1;
@@ -63,6 +81,9 @@ export class HUD {
     this.audioManager = AudioManager.getInstance();
 
     this.createAddictiveElements();
+    this.createHealthDisplay();
+    this.createPowerUpDisplay();
+    this.createAbilityDisplay();
     this.createMuteButton();
     this.setupEventListeners();
     this.loadHighScore();
@@ -276,6 +297,21 @@ export class HUD {
         80% { transform: translateX(-50%) scale(1); opacity: 1; }
         100% { transform: translateX(-50%) scale(0.8); opacity: 0; }
       }
+      @keyframes healthPulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+      @keyframes powerUpSlide {
+        from { transform: translateX(100px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+      @keyframes powerUpPulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+      @keyframes powerUpFade {
+        to { opacity: 0; transform: translateX(20px); }
+      }
     `;
     document.head.appendChild(style);
   }
@@ -379,6 +415,36 @@ export class HUD {
     eventBus.on('player:damaged', () => {
       this.showFloatingText('HIT!', '#FF0040');
       this.triggerScreenshake();
+    });
+
+    // Health changed
+    eventBus.on(GameEvent.HEALTH_CHANGED, (state: HealthState) => {
+      this.updateHealth(state);
+    });
+
+    // Player healed
+    eventBus.on(GameEvent.PLAYER_HEALED, (data: any) => {
+      this.showFloatingText(`+${data.healAmount} HP`, '#40C0FF');
+    });
+
+    // Power-up state changed
+    eventBus.on('powerup:state', (powerUps: ActivePowerUp[]) => {
+      this.updatePowerUps(powerUps);
+    });
+
+    // Power-up activated
+    eventBus.on('powerup:activated', (data: any) => {
+      this.showFloatingText(`${data.name}`, '#00FF00');
+    });
+
+    // Power-up expired
+    eventBus.on('powerup:expired', (data: any) => {
+      this.removePowerUpDisplay(data.type);
+    });
+
+    // Abilities state changed
+    eventBus.on('abilities:state', (states: AbilityState[]) => {
+      this.updateAbilities(states);
     });
 
     // Enemy destroyed for kill feed
@@ -686,6 +752,426 @@ export class HUD {
     } catch (e) {
       // Ignore
     }
+  }
+
+  /**
+   * Create health display with hearts
+   */
+  private createHealthDisplay(): void {
+    const uiLayer = document.getElementById('ui-layer')!;
+
+    // Health container (bottom left, above mute button)
+    this.healthContainer = document.createElement('div');
+    this.healthContainer.className = 'health-container';
+    this.healthContainer.style.cssText = `
+      position: absolute;
+      bottom: 60px;
+      left: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      z-index: 10;
+    `;
+
+    // Health label
+    const healthLabel = document.createElement('div');
+    healthLabel.textContent = 'INTEGRITY';
+    healthLabel.style.cssText = `
+      font-size: 10px;
+      color: #666;
+      margin-bottom: 2px;
+    `;
+    this.healthContainer.appendChild(healthLabel);
+
+    // Health bar background
+    const healthBarBg = document.createElement('div');
+    healthBarBg.style.cssText = `
+      width: 150px;
+      height: 8px;
+      background: rgba(255, 0, 64, 0.2);
+      border: 1px solid #FF0040;
+      border-radius: 4px;
+      overflow: hidden;
+    `;
+
+    // Health bar fill
+    this.healthBar = document.createElement('div');
+    this.healthBar.className = 'health-bar-fill';
+    this.healthBar.style.cssText = `
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, #FF0040, #FF4080);
+      box-shadow: 0 0 10px #FF0040;
+      transition: width 0.3s ease-out, background 0.3s;
+    `;
+    healthBarBg.appendChild(this.healthBar);
+    this.healthContainer.appendChild(healthBarBg);
+
+    // Health hearts (for visual representation)
+    const heartsContainer = document.createElement('div');
+    heartsContainer.style.cssText = `
+      display: flex;
+      gap: 5px;
+      margin-top: 5px;
+    `;
+    this.healthHearts = [];
+    for (let i = 0; i < this.maxHealth; i++) {
+      const heart = document.createElement('span');
+      heart.textContent = '◆';
+      heart.style.cssText = `
+        font-size: 14px;
+        color: #FF0040;
+        text-shadow: 0 0 5px #FF0040;
+        transition: all 0.3s;
+      `;
+      heartsContainer.appendChild(heart);
+      this.healthHearts.push(heart);
+    }
+    this.healthContainer.appendChild(heartsContainer);
+
+    uiLayer.appendChild(this.healthContainer);
+  }
+
+  /**
+   * Update health display
+   */
+  private updateHealth(state: HealthState): void {
+    this.currentHealth = state.currentHealth;
+    this.maxHealth = state.maxHealth;
+
+    // Update health bar
+    const healthPercent = (this.currentHealth / this.maxHealth) * 100;
+    this.healthBar.style.width = `${healthPercent}%`;
+
+    // Change color based on health
+    if (healthPercent > 66) {
+      this.healthBar.style.background = 'linear-gradient(90deg, #FF0040, #FF4080)';
+      this.healthBar.style.boxShadow = '0 0 10px #FF0040';
+    } else if (healthPercent > 33) {
+      this.healthBar.style.background = 'linear-gradient(90deg, #FFB000, #FF4040)';
+      this.healthBar.style.boxShadow = '0 0 10px #FFB000';
+    } else {
+      this.healthBar.style.background = 'linear-gradient(90deg, #FF0000, #FF4040)';
+      this.healthBar.style.boxShadow = '0 0 15px #FF0000';
+    }
+
+    // Update hearts
+    this.healthHearts.forEach((heart, index) => {
+      if (index < this.currentHealth) {
+        heart.style.opacity = '1';
+        heart.style.color = '#FF0040';
+        heart.style.textShadow = '0 0 5px #FF0040';
+      } else {
+        heart.style.opacity = '0.3';
+        heart.style.color = '#333';
+        heart.style.textShadow = 'none';
+      }
+    });
+
+    // Invulnerability flash effect
+    if (state.isInvulnerable) {
+      this.healthBar.style.animation = 'healthPulse 0.5s ease-in-out infinite';
+    } else {
+      this.healthBar.style.animation = '';
+    }
+  }
+
+  /**
+   * Create power-up display area
+   */
+  private createPowerUpDisplay(): void {
+    const uiLayer = document.getElementById('ui-layer')!;
+
+    this.powerUpContainer = document.createElement('div');
+    this.powerUpContainer.className = 'powerup-container';
+    this.powerUpContainer.style.cssText = `
+      position: absolute;
+      bottom: 60px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      align-items: flex-end;
+      z-index: 10;
+    `;
+
+    const label = document.createElement('div');
+    label.textContent = 'ACTIVE SYSTEMS';
+    label.style.cssText = `
+      font-size: 10px;
+      color: #666;
+      margin-bottom: 2px;
+    `;
+    this.powerUpContainer.appendChild(label);
+
+    uiLayer.appendChild(this.powerUpContainer);
+  }
+
+  /**
+   * Update active power-ups display
+   */
+  private updatePowerUps(powerUps: ActivePowerUp[]): void {
+    // Clear current displays
+    for (const [type, element] of this.activePowerUps) {
+      let found = false;
+      for (const pu of powerUps) {
+        if (pu.type === type) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        element.remove();
+        this.activePowerUps.delete(type);
+      }
+    }
+
+    // Add/update displays
+    for (const pu of powerUps) {
+      if (!this.activePowerUps.has(pu.type)) {
+        this.createPowerUpElement(pu);
+      } else {
+        this.updatePowerUpElement(pu);
+      }
+    }
+  }
+
+  /**
+   * Create a power-up status element
+   */
+  private createPowerUpElement(pu: ActivePowerUp): void {
+    const element = document.createElement('div');
+    element.className = 'powerup-status';
+    element.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 10px;
+      background: rgba(0, 0, 0, 0.7);
+      border: 1px solid #00FF00;
+      border-radius: 4px;
+      animation: powerUpSlide 0.3s ease-out;
+    `;
+
+    const icon = document.createElement('span');
+    icon.textContent = '⚡';
+    icon.style.fontSize = '14px';
+
+    const name = document.createElement('span');
+    name.textContent = pu.name || pu.type.toString();
+    name.style.cssText = `
+      font-size: 11px;
+      color: #00FF00;
+      font-weight: bold;
+    `;
+
+    const timer = document.createElement('span');
+    timer.textContent = Math.ceil(pu.timeRemaining) + 's';
+    timer.className = 'powerup-timer';
+    timer.style.cssText = `
+      font-size: 10px;
+      color: #FFF;
+      min-width: 25px;
+      text-align: right;
+    `;
+
+    element.appendChild(icon);
+    element.appendChild(name);
+    element.appendChild(timer);
+
+    this.powerUpContainer.appendChild(element);
+    this.activePowerUps.set(pu.type, element);
+  }
+
+  /**
+   * Update existing power-up element
+   */
+  private updatePowerUpElement(pu: ActivePowerUp): void {
+    const element = this.activePowerUps.get(pu.type);
+    if (element) {
+      const timer = element.querySelector('.powerup-timer') as HTMLElement;
+      if (timer) {
+        timer.textContent = Math.ceil(pu.timeRemaining) + 's';
+      }
+
+      // Pulse when low
+      if (pu.timeRemaining < 3) {
+        element.style.animation = 'powerUpPulse 0.5s ease-in-out infinite';
+      }
+    }
+  }
+
+  /**
+   * Remove power-up display
+   */
+  private removePowerUpDisplay(type: string): void {
+    const element = this.activePowerUps.get(type);
+    if (element) {
+      element.style.animation = 'powerUpFade 0.3s ease-out forwards';
+      setTimeout(() => {
+        element.remove();
+        this.activePowerUps.delete(type);
+      }, 300);
+    }
+  }
+
+  /**
+   * Create ability display area
+   */
+  private createAbilityDisplay(): void {
+    const uiLayer = document.getElementById('ui-layer')!;
+
+    this.abilityContainer = document.createElement('div');
+    this.abilityContainer.className = 'ability-container';
+    this.abilityContainer.style.cssText = `
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 15px;
+      z-index: 10;
+    `;
+
+    uiLayer.appendChild(this.abilityContainer);
+  }
+
+  /**
+   * Update abilities display
+   */
+  private updateAbilities(states: AbilityState[]): void {
+    for (const state of states) {
+      const abilityKey = state.type.toString();
+      let element = this.abilityIcons.get(abilityKey);
+
+      if (!element) {
+        element = this.createAbilityElement(state);
+        this.abilityIcons.set(abilityKey, element);
+      }
+
+      this.updateAbilityElement(state, element);
+    }
+  }
+
+  /**
+   * Create an ability icon element
+   */
+  private createAbilityElement(state: AbilityState): HTMLElement {
+    const element = document.createElement('div');
+    element.className = 'ability-icon';
+    element.style.cssText = `
+      position: relative;
+      width: 50px;
+      height: 50px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.7);
+      border: 2px solid ${this.getAbilityColor(state.type)};
+      border-radius: 8px;
+      transition: all 0.2s;
+    `;
+
+    // Icon/key
+    const icon = document.createElement('div');
+    icon.textContent = this.getAbilityKey(state.type);
+    icon.style.cssText = `
+      font-size: 16px;
+      font-weight: bold;
+      color: #FFF;
+      z-index: 2;
+    `;
+
+    // Cooldown overlay
+    const cooldown = document.createElement('div');
+    cooldown.className = 'ability-cooldown';
+    cooldown.style.cssText = `
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 0%;
+      background: rgba(0, 0, 0, 0.8);
+      border-radius: 6px;
+      transition: height 0.1s linear;
+    `;
+
+    // Active indicator
+    const active = document.createElement('div');
+    active.className = 'ability-active';
+    active.style.cssText = `
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      width: 15px;
+      height: 15px;
+      background: #FF0040;
+      border-radius: 50%;
+      display: none;
+      box-shadow: 0 0 10px #FF0040;
+    `;
+
+    element.appendChild(icon);
+    element.appendChild(cooldown);
+    element.appendChild(active);
+    this.abilityContainer.appendChild(element);
+
+    return element;
+  }
+
+  /**
+   * Update ability element state
+   */
+  private updateAbilityElement(state: AbilityState, element: HTMLElement): void {
+    const cooldown = element.querySelector('.ability-cooldown') as HTMLElement;
+    const active = element.querySelector('.ability-active') as HTMLElement;
+
+    // Update cooldown overlay
+    if (state.cooldownRemaining > 0) {
+      const percent = (state.cooldownRemaining / this.getAbilityCooldown(state.type)) * 100;
+      cooldown.style.height = `${percent}%`;
+      element.style.opacity = '0.5';
+    } else {
+      cooldown.style.height = '0%';
+      element.style.opacity = '1';
+    }
+
+    // Update active indicator
+    if (state.isActive) {
+      active.style.display = 'block';
+      element.style.boxShadow = `0 0 20px ${this.getAbilityColor(state.type)}`;
+    } else {
+      active.style.display = 'none';
+      element.style.boxShadow = 'none';
+    }
+  }
+
+  private getAbilityColor(type: string): string {
+    const colors: Record<string, string> = {
+      emp_bomb: '#FF0040',
+      time_slow: '#8000FF',
+      overcharge: '#FFFF00'
+    };
+    return colors[type] || '#40C0FF';
+  }
+
+  private getAbilityKey(type: string): string {
+    const keys: Record<string, string> = {
+      emp_bomb: 'Q',
+      time_slow: 'E',
+      overcharge: 'R'
+    };
+    return keys[type] || '?';
+  }
+
+  private getAbilityCooldown(type: string): number {
+    const cooldowns: Record<string, number> = {
+      emp_bomb: 30,
+      time_slow: 20,
+      overcharge: 25
+    };
+    return cooldowns[type] || 30;
   }
 
   dispose(): void {

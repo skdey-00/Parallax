@@ -5,8 +5,17 @@ import { Player } from './entities/Player.js';
 import { WaveManager } from './systems/WaveManager.js';
 import { ConvergenceSystem } from './systems/Convergence.js';
 import { CombatSystem } from './systems/Combat.js';
+import { HealthSystem } from './systems/HealthSystem.js';
+import { PowerUpSystem } from './systems/PowerUpSystem.js';
+import { PowerUpTutorial } from './systems/PowerUpTutorial.js';
+import { AbilitySystem } from './systems/AbilitySystem.js';
+import { HazardSystem } from './systems/HazardSystem.js';
+import { AchievementSystem } from './systems/AchievementSystem.js';
+import { BossSystem } from './systems/BossSystem.js';
+import { WeaponSystem } from './systems/WeaponSystem.js';
 import { HUD } from './ui/HUD.js';
 import { Menu } from './ui/Menu.js';
+import { IntroSlideshow } from './ui/IntroSlideshow.js';
 import { DeltaTime } from './utils/DeltaTime.js';
 import { eventBus, GameEvent } from './core/EventBus.js';
 import { COLORS } from './core/Constants.js';
@@ -14,6 +23,8 @@ import { EffectsAssets } from './assets/EffectsAssets.js';
 import { AudioManager } from './audio/AudioManager.js';
 import { SoundGenerator } from './audio/SoundGenerator.js';
 import { ScoringSystem } from './systems/ScoringSystem.js';
+import { POWER_UP_NAMES } from './core/PowerUpTypes.js';
+import { ABILITIES } from './systems/AbilitySystem.js';
 
 class Game {
   private scene: GameScene;
@@ -22,8 +33,17 @@ class Game {
   private waveManager: WaveManager;
   private convergenceSystem: ConvergenceSystem;
   private combatSystem: CombatSystem;
+  private healthSystem: HealthSystem;
+  private powerUpSystem: PowerUpSystem;
+  private powerUpTutorial: PowerUpTutorial;
+  private abilitySystem: AbilitySystem;
+  private hazardSystem: HazardSystem;
+  private achievementSystem: AchievementSystem;
+  private bossSystem: BossSystem;
+  private weaponSystem: WeaponSystem;
   private hud: HUD;
   private menu: Menu;
+  private introSlideshow: IntroSlideshow;
   private deltaTime: DeltaTime;
   private audioManager: AudioManager;
   private soundGenerator: SoundGenerator;
@@ -31,6 +51,7 @@ class Game {
   private isPlaying: boolean = false;
   private animationId: number | null = null;
   private mousePressed: boolean = false;
+  private lastFireTime: number = 0;
 
   constructor() {
     // Initialize Three.js
@@ -48,8 +69,17 @@ class Game {
     this.waveManager = new WaveManager(this.scene.getThreeScene());
     this.convergenceSystem = new ConvergenceSystem(this.camera.getThreeCamera());
     this.combatSystem = new CombatSystem(this.scene.getThreeScene());
+    this.healthSystem = new HealthSystem();
+    this.powerUpSystem = new PowerUpSystem(this.scene.getThreeScene());
+    this.powerUpTutorial = new PowerUpTutorial();
+    this.abilitySystem = new AbilitySystem();
+    this.hazardSystem = new HazardSystem(this.scene.getThreeScene());
+    this.achievementSystem = new AchievementSystem();
+    this.bossSystem = new BossSystem(this.scene.getThreeScene());
+    this.weaponSystem = new WeaponSystem(this.scene.getThreeScene());
     this.scoringSystem = new ScoringSystem();
     this.hud = new HUD();
+    this.introSlideshow = new IntroSlideshow();
     this.menu = new Menu();
     this.deltaTime = new DeltaTime();
 
@@ -65,6 +95,11 @@ class Game {
 
     // Handle window resize
     window.addEventListener('resize', () => this.onResize());
+
+    // Play intro slideshow before showing menu
+    this.introSlideshow.play().then(() => {
+      // Menu is already visible, intro just overlays it
+    });
 
     // Initial render
     this.render();
@@ -94,6 +129,16 @@ class Game {
       const bonus = this.scoringSystem.onWaveComplete(wave);
       this.soundGenerator.playWaveCompleteSound();
 
+      // Check if boss should spawn
+      if (wave === 3 || wave === 7 || wave % 10 === 0) {
+        const act = wave === 3 ? 1 : wave === 7 ? 2 : 3;
+        setTimeout(() => {
+          if (this.isPlaying) {
+            this.bossSystem.spawnBoss(act);
+          }
+        }, 2000);
+      }
+
       // Start next wave after delay
       setTimeout(() => {
         if (this.isPlaying) {
@@ -118,6 +163,45 @@ class Game {
     eventBus.on('target:state', (state: any) => {
       this.player.setTargetLocked(state.isLocked);
     });
+
+    // Player death - trigger game over
+    eventBus.on(GameEvent.PLAYER_DIED, () => {
+      this.gameOver();
+    });
+
+    // Power-up collected
+    eventBus.on('powerup:collected', (data: any) => {
+      const typeName = data.type as keyof typeof POWER_UP_NAMES;
+      this.showFloatingText(`${POWER_UP_NAMES[typeName]}!`, '#00FF00');
+    });
+
+    // Shield status
+    eventBus.on('player:shield', (data: any) => {
+      if (data.active) {
+        this.showFloatingText('SHIELD ACTIVE', '#00FFFF');
+      }
+    });
+
+    // Ability activated
+    eventBus.on('ability:activated', (data: any) => {
+      const typeKey = data.type as keyof typeof ABILITIES;
+      this.showFloatingText(`${data.name}!`, ABILITIES[typeKey].color);
+    });
+
+    // EMP Bomb - destroy all enemies
+    eventBus.on('ability:emp', () => {
+      this.triggerEMP();
+    });
+
+    // Overcharge - rapid fire
+    eventBus.on('ability:overcharge', (data: any) => {
+      this.showFloatingText('RAPID FIRE!', '#FFFF00');
+    });
+
+    // Achievement unlocked
+    eventBus.on('achievement:unlocked', (achievement: any) => {
+      this.showAchievementNotification(achievement);
+    });
   }
 
   private setupInput(): void {
@@ -131,10 +215,15 @@ class Game {
       this.mousePressed = false;
     });
 
-    // Keyboard input for firing
+    // Keyboard input for firing and weapon switching
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Space') {
         this.tryFire();
+      }
+      // Switch weapons with Tab
+      if (e.code === 'Tab') {
+        e.preventDefault();
+        this.weaponSystem.cycleWeapon();
       }
     });
   }
@@ -148,7 +237,8 @@ class Game {
       const convergenceData = this.convergenceSystem.getConvergenceData(convergedEnemy);
       const isCrit = convergenceData && convergenceData.alignment >= 0.98;
 
-      if (this.combatSystem.fire(this.scene.getThreeScene())) {
+      // Use weapon system to fire
+      if (this.weaponSystem.fire(this.player.getPosition(), convergedEnemy)) {
         // Check if enemy is destroyed
         const enemy = this.waveManager.getEnemy(convergedEnemy);
         if (enemy) {
@@ -186,6 +276,25 @@ class Game {
             this.convergenceSystem.removeEnemy(convergedEnemy);
           }
         }
+
+        // Check if boss is hit
+        const boss = this.bossSystem.getCurrentBoss();
+        if (boss && boss.getId() === convergedEnemy) {
+          const bossDestroyed = boss.takeDamage();
+          if (bossDestroyed) {
+            // Boss defeated bonus
+            const bonusPoints = 5000;
+            this.scoringSystem.onEnemyDestroyed(1.0, 'boss', true);
+            eventBus.emit(GameEvent.ENEMY_DESTROYED, {
+              points: bonusPoints,
+              combo: 0,
+              crit: true
+            });
+
+            // Spawn effect
+            EffectsAssets.createBurst(boss.getPosition(), COLORS.AMBER);
+          }
+        }
       }
     }
   }
@@ -193,7 +302,91 @@ class Game {
   private startGame(): void {
     this.isPlaying = true;
     this.scoringSystem.reset();
+    this.healthSystem.reset();
+    this.powerUpSystem.reset();
+    this.powerUpTutorial.reset();
+    this.abilitySystem.reset();
+    this.achievementSystem.reset();
+    this.bossSystem.reset();
+    this.weaponSystem.reset();
     this.waveManager.startNextWave();
+  }
+
+  private showAchievementNotification(achievement: any): void {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+      position: absolute;
+      top: 20%;
+      left: 50%;
+      transform: translateX(-50%) scale(0);
+      background: rgba(0, 0, 0, 0.9);
+      border: 2px solid #FFB000;
+      border-radius: 10px;
+      padding: 20px 40px;
+      text-align: center;
+      z-index: 100;
+      animation: achievementPop 0.5s ease-out forwards;
+    `;
+
+    notification.innerHTML = `
+      <div style="font-size: 40px;">${achievement.icon}</div>
+      <div style="color: #FFB000; font-size: 14px; margin-top: 5px;">ACHIEVEMENT UNLOCKED</div>
+      <div style="color: #FFF; font-size: 18px; font-weight: bold; margin-top: 5px;">${achievement.name}</div>
+    `;
+
+    document.getElementById('game-container')?.appendChild(notification);
+
+    // Add animation
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes achievementPop {
+        0% { transform: translateX(-50%) scale(0); opacity: 0; }
+        50% { transform: translateX(-50%) scale(1.1); opacity: 1; }
+        100% { transform: translateX(-50%) scale(1); opacity: 1; }
+      }
+      @keyframes achievementFade {
+        0% { opacity: 1; }
+        100% { opacity: 0; }
+      }
+    `;
+    document.head.appendChild(style);
+
+    setTimeout(() => {
+      notification.style.animation = 'achievementFade 0.5s ease-out forwards';
+      setTimeout(() => {
+        notification.remove();
+        style.remove();
+      }, 500);
+    }, 3000);
+  }
+
+  private triggerEMP(): void {
+    // Get all enemies
+    const enemies = this.waveManager.getEnemies();
+    const enemyIds = Array.from(enemies.keys());
+
+    // Destroy all enemies with bonus points
+    enemyIds.forEach(id => {
+      const enemy = enemies.get(id);
+      if (enemy) {
+        // Create explosion effect
+        EffectsAssets.createBurst(enemy.getPosition(), COLORS.THREAT_RED);
+        EffectsAssets.createEnemyFragmentation(enemy.getPosition(), COLORS.THREAT_RED);
+
+        // Grant bonus points
+        this.scoringSystem.onEnemyDestroyed(1.0, enemy.getType().toString(), true);
+
+        // Remove enemy
+        this.waveManager.destroyEnemy(id);
+        this.convergenceSystem.removeEnemy(id);
+      }
+    });
+
+    // Screen flash
+    this.hud.triggerFlash();
+
+    // Play sound
+    this.soundGenerator.playWaveCompleteSound();
   }
 
   private gameOver(): void {
@@ -343,6 +536,16 @@ class Game {
         enemy.update(delta, this.player.getPosition(), convergenceData.alignment);
       });
 
+      // Update boss convergence (if boss is alive)
+      const boss = this.bossSystem.getCurrentBoss();
+      if (boss) {
+        const bossConvergenceData = this.convergenceSystem.calculateConvergence(
+          boss.getId(),
+          boss.getPosition(),
+          playerAimPos
+        );
+      }
+
       // Update combat system (particles)
       this.combatSystem.update(delta, this.scene.getThreeScene());
 
@@ -354,6 +557,50 @@ class Game {
 
       // ADDICTIVE: Update scoring system (combo timers, etc.)
       this.scoringSystem.update(delta);
+
+      // Update health system (invulnerability timers)
+      this.healthSystem.update(delta);
+
+      // Update power-up system
+      this.powerUpSystem.update(delta);
+
+      // Update ability system
+      this.abilitySystem.update(delta);
+
+      // Update hazard system
+      this.hazardSystem.update(delta);
+
+      // Update boss system
+      this.bossSystem.updateBoss(delta, this.player.getPosition());
+
+      // Update weapon system (projectiles)
+      this.weaponSystem.update(delta);
+
+      // Check for hazard collisions
+      if (this.hazardSystem.checkCollision(this.player.getPosition())) {
+        this.healthSystem.takeDamage(1);
+      }
+
+      // Check for power-up collection
+      const collectedPowerUp = this.powerUpSystem.checkCollection(
+        this.player.getAimPosition(),
+        this.camera.getThreeCamera()
+      );
+      if (collectedPowerUp) {
+        this.powerUpSystem.collectPowerUp(collectedPowerUp);
+      }
+
+      // Check for enemy-player collisions
+      enemies.forEach(enemy => {
+        const playerPos = this.player.getPosition();
+        const enemyPos = enemy.getPosition();
+        const distance = playerPos.distanceTo(enemyPos);
+
+        // Collision threshold (adjust based on enemy size)
+        if (distance < 15 && !this.healthSystem.getIsInvulnerable()) {
+          this.healthSystem.takeDamage(1, enemy.getId());
+        }
+      });
 
       // Update HUD
       const maxConv = this.convergenceSystem.getMaxConvergence();
@@ -373,6 +620,33 @@ class Game {
       // Pass max convergence to player for visual feedback
       this.player.setConvergence(maxConv);
     }
+  }
+
+  private showFloatingText(text: string, color: string): void {
+    const floating = document.createElement('div');
+    floating.className = 'floating-text';
+    floating.textContent = text;
+    floating.style.cssText = `
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: ${color};
+      font-size: 24px;
+      font-weight: bold;
+      text-shadow: 0 0 10px ${color};
+      z-index: 15;
+      pointer-events: none;
+      animation: floatUp 1s ease-out forwards;
+    `;
+
+    document.getElementById('ui-layer')?.appendChild(floating);
+
+    setTimeout(() => {
+      if (floating.parentNode) {
+        floating.parentNode.removeChild(floating);
+      }
+    }, 1000);
   }
 
   private render(): void {
@@ -403,9 +677,18 @@ class Game {
     this.waveManager.dispose();
     this.convergenceSystem.dispose();
     this.combatSystem.dispose();
+    this.healthSystem.dispose();
+    this.powerUpSystem.dispose();
+    this.powerUpTutorial.dispose();
+    this.abilitySystem.dispose();
+    this.hazardSystem.dispose();
+    this.achievementSystem.dispose();
+    this.bossSystem.dispose();
+    this.weaponSystem.dispose();
     this.scoringSystem.dispose();
     this.hud.dispose();
     this.menu.dispose();
+    this.introSlideshow.dispose();
     EffectsAssets.dispose();
   }
 }

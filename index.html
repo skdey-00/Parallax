@@ -353,6 +353,124 @@
             animation: glitch 0.3s infinite;
         }
 
+        /* Intro Slideshow */
+        .intro-slideshow {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            --slide-color: #40C0FF;
+        }
+
+        .slide-content {
+            max-width: 800px;
+            width: 90%;
+            text-align: center;
+            position: relative;
+            z-index: 2;
+        }
+
+        .slide-title {
+            font-size: 56px;
+            font-weight: bold;
+            color: var(--slide-color);
+            text-shadow: 0 0 30px var(--slide-color);
+            margin-bottom: 20px;
+            min-height: 70px;
+            letter-spacing: 4px;
+        }
+
+        .slide-subtitle {
+            font-size: 20px;
+            color: #888;
+            margin-bottom: 40px;
+            min-height: 30px;
+            letter-spacing: 2px;
+        }
+
+        .slide-text {
+            color: #40C0FF;
+            font-size: 18px;
+            line-height: 1.8;
+            min-height: 200px;
+        }
+
+        .slide-line {
+            margin: 10px 0;
+            opacity: 0.9;
+        }
+
+        .slide-indicator {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #333;
+            font-size: 14px;
+            letter-spacing: 4px;
+        }
+
+        .slide-hint {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #444;
+            font-size: 12px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .scanlines-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.1),
+                rgba(0, 0, 0, 0.1) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+            pointer-events: none;
+            z-index: 3;
+        }
+
+        .vignette-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.8) 100%);
+            pointer-events: none;
+            z-index: 4;
+        }
+
+        .intro-slideshow.glitch-active .slide-title {
+            animation: glitchText 0.3s infinite;
+        }
+
+        @keyframes glitchText {
+            0% { text-shadow: 2px 0 var(--slide-color), -2px 0 #FF0040; }
+            25% { text-shadow: -2px 0 var(--slide-color), 2px 0 #FF0040; }
+            50% { text-shadow: 1px 1px var(--slide-color), -1px -1px #FF0040; }
+            75% { text-shadow: -1px -1px var(--slide-color), 1px 1px #FF0040; }
+            100% { text-shadow: 2px 0 var(--slide-color), -2px 0 #FF0040; }
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
         @keyframes glitch {
             0% { text-shadow: 2px 0 #FF0040, -2px 0 #40C0FF; }
             25% { text-shadow: -2px 0 #FF0040, 2px 0 #40C0FF; }
