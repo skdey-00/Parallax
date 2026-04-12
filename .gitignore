@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Test results
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+.claude/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+output/
+nul

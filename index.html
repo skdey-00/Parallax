@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PARALLAX - Convergence Engine</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: 'Share Tech Mono', monospace;
+            cursor: none;
+        }
+
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .hud-element {
+            position: absolute;
+            color: #40C0FF;
+            font-size: 14px;
+            text-shadow: 0 0 10px #40C0FF;
+        }
+
+        .convergence-display {
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+        }
+
+        .convergence-value {
+            font-size: 48px;
+            font-weight: bold;
+        }
+
+        .wave-display {
+            top: 20px;
+            right: 20px;
+        }
+
+        .score-display {
+            top: 20px;
+            left: 20px;
+        }
+
+        .depth-readout {
+            bottom: 20px;
+            left: 20px;
+        }
+
+        #menu-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            cursor: default;
+        }
+
+        #menu-overlay.hidden {
+            display: none;
+        }
+
+        .menu-title {
+            font-size: 72px;
+            color: #FFB000;
+            text-shadow: 0 0 20px #FFB000;
+            margin-bottom: 20px;
+        }
+
+        .menu-subtitle {
+            font-size: 18px;
+            color: #40C0FF;
+            margin-bottom: 40px;
+            max-width: 600px;
+            text-align: center;
+            line-height: 1.6;
+        }
+
+        .menu-button {
+            background: transparent;
+            border: 2px solid #40C0FF;
+            color: #40C0FF;
+            padding: 15px 40px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 10px;
+        }
+
+        .menu-button:hover {
+            background: #40C0FF;
+            color: #000;
+            box-shadow: 0 0 20px #40C0FF;
+        }
+
+        .controls-info {
+            margin-top: 40px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 60px;
+            pointer-events: none;
+            z-index: 15;
+        }
+
+        .crosshair-line {
+            position: absolute;
+            background: #FFB000;
+            box-shadow: 0 0 10px #FFB000;
+        }
+
+        .crosshair-line.horizontal {
+            width: 100%;
+            height: 2px;
+            top: 50%;
+            left: 0;
+        }
+
+        .crosshair-line.vertical {
+            width: 2px;
+            height: 100%;
+            left: 50%;
+            top: 0;
+        }
+
+        .crosshair-ring {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border: 2px solid #FFB000;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 10px #FFB000;
+        }
+
+        .lock-indicator {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            border: 3px solid #FF0040;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 15px #FF0040;
+            opacity: 0;
+            transition: opacity 0.1s;
+        }
+
+        .lock-indicator.active {
+            opacity: 1;
+            animation: lockPulse 0.5s ease-in-out infinite;
+        }
+
+        @keyframes lockPulse {
+            0%, 100% {
+                transform: translate(-50%, -50%) scale(1);
+                box-shadow: 0 0 15px #FF0040;
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.1);
+                box-shadow: 0 0 30px #FF0040, 0 0 50px #FF0040;
+            }
+        }
+
+        .narration {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #FFB000;
+            font-size: 16px;
+            text-align: center;
+            max-width: 600px;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        .narration.visible {
+            opacity: 1;
+            animation: narrationFadeIn 0.5s ease-out;
+        }
+
+        @keyframes narrationFadeIn {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+
+        .flash {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 25;
+        }
+
+        .flash.active {
+            animation: flash 0.2s ease-out;
+        }
+
+        @keyframes flash {
+            0% { opacity: 0.8; }
+            100% { opacity: 0; }
+        }
+
+        .vignette {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+            background: radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.4) 100%);
+            box-shadow: inset 0 0 150px rgba(0,0,0,0.9);
+        }
+
+        .scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 6;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.03),
+                rgba(0, 0, 0, 0.03) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+        }
+
+        .chromatic-aberration {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 4;
+            background: radial-gradient(ellipse at center, transparent 60%, rgba(255,0,0,0.02) 100%);
+            mix-blend-mode: screen;
+        }
+
+        .screenshake {
+            animation: shake 0.3s ease-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0); }
+            10% { transform: translate(-2px, -1px); }
+            20% { transform: translate(2px, 1px); }
+            30% { transform: translate(-1px, 2px); }
+            40% { transform: translate(1px, -1px); }
+            50% { transform: translate(-2px, 2px); }
+            60% { transform: translate(2px, -2px); }
+            70% { transform: translate(-1px, 1px); }
+            80% { transform: translate(1px, -1px); }
+            90% { transform: translate(-1px, -1px); }
+        }
+
+        .wave-transition {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: black;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 30;
+            transition: opacity 1s ease-in-out;
+        }
+
+        .wave-transition.active {
+            opacity: 1;
+        }
+
+        .narration-typewriter {
+            overflow: hidden;
+            white-space: nowrap;
+            animation: typing 2s steps(60, end);
+        }
+
+        @keyframes typing {
+            from { max-width: 0; }
+            to { max-width: 100%; }
+        }
+
+        /* Act III glitch effects */
+        .act-iii-flicker {
+            animation: flicker 0.1s infinite;
+        }
+
+        @keyframes flicker {
+            0% { opacity: 1; }
+            50% { opacity: 0.8; }
+            100% { opacity: 1; }
+        }
+
+        .glitch-text {
+            animation: glitch 0.3s infinite;
+        }
+
+        @keyframes glitch {
+            0% { text-shadow: 2px 0 #FF0040, -2px 0 #40C0FF; }
+            25% { text-shadow: -2px 0 #FF0040, 2px 0 #40C0FF; }
+            50% { text-shadow: 1px 1px #FF0040, -1px -1px #40C0FF; }
+            75% { text-shadow: -1px -1px #FF0040, 1px 1px #40C0FF; }
+            100% { text-shadow: 2px 0 #FF0040, -2px 0 #40C0FF; }
+        }
+
+        /* Instructions Overlay */
+        #instructions-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.98);
+            z-index: 25;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow-y: auto;
+            padding: 40px;
+        }
+
+        #instructions-overlay.hidden {
+            display: none;
+        }
+
+        .instructions-container {
+            max-width: 700px;
+            width: 100%;
+            color: #40C0FF;
+        }
+
+        .instructions-title {
+            font-size: 48px;
+            color: #FFB000;
+            text-shadow: 0 0 20px #FFB000;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .instruction-section {
+            margin-bottom: 25px;
+            padding: 15px;
+            border-left: 2px solid #FFB000;
+            background: rgba(255, 176, 0, 0.05);
+        }
+
+        .instruction-heading {
+            font-size: 20px;
+            color: #FFB000;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px #FFB000;
+        }
+
+        .instruction-text {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #40C0FF;
+        }
+
+        .highlight {
+            color: #FF0040;
+            text-shadow: 0 0 8px #FF0040;
+            font-weight: bold;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .control-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .key {
+            background: rgba(64, 192, 255, 0.2);
+            border: 1px solid #40C0FF;
+            color: #40C0FF;
+            padding: 4px 8px;
+            font-size: 12px;
+            min-width: 30px;
+            text-align: center;
+            border-radius: 3px;
+        }
+
+        .key-wide {
+            min-width: 70px;
+        }
+
+        .control-desc {
+            color: #40C0FF;
+            font-size: 12px;
+        }
+
+        .hud-elements-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .hud-element {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+        }
+
+        .hud-indicator {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .hud-indicator.convergence {
+            background: rgba(64, 192, 255, 0.3);
+            border: 2px solid #40C0FF;
+        }
+
+        .hud-indicator.lock {
+            background: rgba(255, 0, 64, 0.3);
+            border: 2px solid #FF0040;
+        }
+
+        .hud-indicator.wave {
+            background: rgba(255, 176, 0, 0.3);
+            border: 2px solid #FFB000;
+        }
+
+        .hud-indicator.depth {
+            background: rgba(255, 255, 255, 0.3);
+            border: 2px solid #fff;
+        }
+
+        /* Tutorial hint during gameplay */
+        #tutorial-hint {
+            position: absolute;
+            bottom: 20px;
+            right: 80px;
+            color: #666;
+            font-size: 12px;
+            z-index: 15;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        #tutorial-hint.visible {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="ui-layer">
+            <div class="hud-element convergence-display">
+                <div>CONVERGENCE</div>
+                <div class="convergence-value" id="convergence-value">0%</div>
+            </div>
+            <div class="hud-element wave-display">
+                <div>WAVE <span id="wave-number">1</span></div>
+                <div id="act-display" style="color: #FFB000; margin-top: 5px;">ACT I: CONTACT</div>
+            </div>
+            <div class="hud-element score-display">
+                <div>KILLS: <span id="score-value">0</span></div>
+            </div>
+            <div class="hud-element depth-readout">
+                <div>DEPTH: <span id="depth-value">0</span></div>
+                <div>ENTITIES: <span id="entity-count">0</span></div>
+            </div>
+            <div class="narration" id="narration"></div>
+        </div>
+
+        <div id="crosshair">
+            <div class="crosshair-line horizontal"></div>
+            <div class="crosshair-line vertical"></div>
+            <div class="crosshair-ring"></div>
+            <div class="lock-indicator" id="lock-indicator"></div>
+        </div>
+
+        <div class="vignette"></div>
+        <div class="scanlines"></div>
+        <div class="chromatic-aberration"></div>
+        <div class="flash" id="flash"></div>
+        <div class="wave-transition" id="wave-transition"></div>
+
+        <div id="menu-overlay">
+            <div class="menu-title">PARALLAX</div>
+            <div class="menu-subtitle">
+                The Veil cannot be detected directly. Only by aligning your perspective
+                can you reveal the truth. Movement is your weapon. Convergence is your ammunition.
+            </div>
+            <button class="menu-button" id="instructions-button">HOW TO PLAY</button>
+            <button class="menu-button" id="start-button">INITIALIZE</button>
+            <div class="controls-info">
+                WASD / ARROWS - Move | SPACE / CLICK - Fire | Press H for help
+            </div>
+        </div>
+
+        <!-- Instructions Overlay -->
+        <div id="instructions-overlay" class="hidden">
+            <div class="instructions-container">
+                <div class="instructions-title">HOW TO PLAY</div>
+
+                <div class="instruction-section">
+                    <div class="instruction-heading">THE CONCEPT</div>
+                    <div class="instruction-text">
+                        In Parallax, enemies exist at different depths (distances) in 3D space.
+                        Traditional collision doesn't exist. To destroy an enemy, you must
+                        <span class="highlight">align your perspective</span> until the enemy's
+                        apparent position matches your targeting reticle.
+                    </div>
+                </div>
+
+                <div class="instruction-section">
+                    <div class="instruction-heading">CONVERGENCE</div>
+                    <div class="instruction-text">
+                        Move your ship to align with an enemy. Watch the <span class="highlight">convergence meter</span>
+                        at the top of the screen. When it reaches <span class="highlight">95%+</span>,
+                        a <span class="highlight">red lock-on ring</span> appears. Fire to destroy.
+                    </div>
+                </div>
+
+                <div class="instruction-section">
+                    <div class="instruction-heading">ENEMY TACTICS</div>
+                    <div class="instruction-text">
+                        Enemies survive by sliding along the Z-axis — moving closer to or farther
+                        from the camera. They don't dodge left or right. You must anticipate
+                        their depth changes and re-align.
+                    </div>
+                </div>
+
+                <div class="instruction-section">
+                    <div class="instruction-heading">CONTROLS</div>
+                    <div class="controls-grid">
+                        <div class="control-item">
+                            <span class="key">W</span>
+                            <span class="key">A</span>
+                            <span class="key">S</span>
+                            <span class="key">D</span>
+                            <span class="control-desc">Move Ship</span>
+                        </div>
+                        <div class="control-item">
+                            <span class="key key-wide">ARROWS</span>
+                            <span class="control-desc">Move Ship</span>
+                        </div>
+                        <div class="control-item">
+                            <span class="key key-wide">SPACE</span>
+                            <span class="control-desc">Fire When Locked</span>
+                        </div>
+                        <div class="control-item">
+                            <span class="key key-wide">CLICK</span>
+                            <span class="control-desc">Fire When Locked</span>
+                        </div>
+                        <div class="control-item">
+                            <span class="key key-wide">H</span>
+                            <span class="control-desc">Toggle Help</span>
+                        </div>
+                        <div class="control-item">
+                            <span class="key key-wide">M</span>
+                            <span class="control-desc">Toggle Audio</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="instruction-section">
+                    <div class="instruction-heading">HUD ELEMENTS</div>
+                    <div class="hud-elements-list">
+                        <div class="hud-element"><span class="hud-indicator convergence"></span> Convergence Meter (top center)</div>
+                        <div class="hud-element"><span class="hud-indicator lock"></span> Lock-on Ring (appears at 95%+)</div>
+                        <div class="hud-element"><span class="hud-indicator wave"></span> Wave & Act Display (top right)</div>
+                        <div class="hud-element"><span class="hud-indicator depth"></span> Z-Depth & Entity Count (bottom left)</div>
+                    </div>
+                </div>
+
+                <div class="instruction-section">
+                    <div class="instruction-heading">THE THREE ACTS</div>
+                    <div class="instruction-text">
+                        <span class="highlight">ACT I (Waves 1-3):</span> First contact. Basic entities.<br>
+                        <span class="highlight">ACT II (Waves 4-7):</span> Escalation. Fast Z-dodging, split entities.<br>
+                        <span class="highlight">ACT III (Wave 8+):</span> Collapse. Sensor interference, maximum threat.
+                    </div>
+                </div>
+
+                <button class="menu-button" id="close-instructions" style="margin-top: 20px;">UNDERSTOOD</button>
+            </div>
+        </div>
+
+        <!-- Tutorial hint during gameplay -->
+        <div id="tutorial-hint">Press <span class="key" style="margin: 0 4px;">H</span> for help</div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
