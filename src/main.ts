@@ -249,12 +249,25 @@ class Game {
 
     if (!convergedTarget) return;
 
+    // Get target position for projectile targeting
+    let targetPosition: THREE.Vector3 | null = null;
+    const enemy = this.waveManager.getEnemy(convergedTarget);
+    if (enemy) {
+      targetPosition = enemy.getPosition();
+    } else {
+      // Check if it's a boss target
+      const boss = this.bossSystem.getCurrentBoss();
+      if (boss && this.bossSystem.isBossTarget(convergedTarget)) {
+        targetPosition = this.bossSystem.getTargetPosition(convergedTarget);
+      }
+    }
+
     // Get convergence data for scoring
     const convergenceData = this.convergenceSystem.getConvergenceData(convergedTarget);
     const isCrit = convergenceData && convergenceData.alignment >= 0.98;
 
-    // Use weapon system to fire
-    if (this.weaponSystem.fire(this.player.getPosition(), convergedTarget)) {
+    // Use weapon system to fire (with target position)
+    if (this.weaponSystem.fire(this.player.getPosition(), convergedTarget, targetPosition)) {
       // Get convergence data for scoring
       const convergenceData = this.convergenceSystem.getConvergenceData(convergedTarget);
       const isCrit = convergenceData && convergenceData.alignment >= 0.98;
