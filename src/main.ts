@@ -251,9 +251,16 @@ class Game {
 
     // Get target position for projectile targeting
     let targetPosition: THREE.Vector3 | null = null;
+    let isHazard = false;
+
     const enemy = this.waveManager.getEnemy(convergedTarget);
     if (enemy) {
       targetPosition = enemy.getPosition();
+    } else if (convergedTarget.startsWith('hazard_')) {
+      // Target is a hazard
+      const hazardPositions = this.hazardSystem.getHazardPositions();
+      targetPosition = hazardPositions.get(convergedTarget) || null;
+      isHazard = true;
     } else {
       // Check if it's a boss target
       const boss = this.bossSystem.getCurrentBoss();
@@ -268,6 +275,26 @@ class Game {
 
     // Use weapon system to fire (with target position)
     if (this.weaponSystem.fire(this.player.getPosition(), convergedTarget, targetPosition)) {
+      // Check if hazard is destroyed
+      if (isHazard && targetPosition) {
+        this.hazardSystem.destroyHazard(convergedTarget);
+        this.convergenceSystem.removeEnemy(convergedTarget);
+
+        // Visual feedback
+        EffectsAssets.createBurst(targetPosition, COLORS.AMBER);
+        EffectsAssets.createEnemyFragmentation(targetPosition, COLORS.AMBER);
+
+        // Small score bonus for destroying hazards
+        const points = this.scoringSystem.onEnemyDestroyed(0.8, 'hazard', false);
+        eventBus.emit(GameEvent.ENEMY_DESTROYED, {
+          points,
+          combo: this.scoringSystem.getScoreInfo().combo,
+          crit: false
+        });
+
+        return;
+      }
+
       // Get convergence data for scoring
       const convergenceData = this.convergenceSystem.getConvergenceData(convergedTarget);
       const isCrit = convergenceData && convergenceData.alignment >= 0.98;
@@ -602,6 +629,16 @@ class Game {
         this.convergenceSystem.calculateConvergence(
           spawn.id,
           spawn.position,
+          playerAimPos
+        );
+      });
+
+      // Add hazards to convergence system (so they can be shot)
+      const hazardPositions = this.hazardSystem.getHazardPositions();
+      hazardPositions.forEach((position, id) => {
+        this.convergenceSystem.calculateConvergence(
+          id,
+          position,
           playerAimPos
         );
       });

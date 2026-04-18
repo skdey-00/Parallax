@@ -154,8 +154,19 @@ export class HazardSystem {
     const hazard = this.hazards.get(id);
     if (hazard) {
       this.scene.remove(hazard.mesh);
+
+      // Dispose main mesh
       hazard.mesh.geometry.dispose();
       (hazard.mesh.material as THREE.Material).dispose();
+
+      // Dispose child meshes (inner core)
+      hazard.mesh.children.forEach(child => {
+        if (child instanceof THREE.Mesh) {
+          child.geometry.dispose();
+          (child.material as THREE.Material).dispose();
+        }
+      });
+
       this.hazards.delete(id);
     }
   }
