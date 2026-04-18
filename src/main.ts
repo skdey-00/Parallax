@@ -259,74 +259,71 @@ class Game {
       const convergenceData = this.convergenceSystem.getConvergenceData(convergedTarget);
       const isCrit = convergenceData && convergenceData.alignment >= 0.98;
 
-      // Use weapon system to fire
-      if (this.weaponSystem.fire(this.player.getPosition(), convergedTarget)) {
-        // Check if enemy is destroyed
-        const enemy = this.waveManager.getEnemy(convergedTarget);
-        if (enemy) {
-          const destroyed = enemy.takeDamage();
-          if (destroyed) {
-            // ADDICTIVE: Score with combo system
-            const points = this.scoringSystem.onEnemyDestroyed(
-              convergenceData?.alignment || 0.95,
-              enemy.getType().toString(),
-              isCrit || false
-            );
+      // Check if enemy is destroyed
+      const enemy = this.waveManager.getEnemy(convergedTarget);
+      if (enemy) {
+        const destroyed = enemy.takeDamage();
+        if (destroyed) {
+          // ADDICTIVE: Score with combo system
+          const points = this.scoringSystem.onEnemyDestroyed(
+            convergenceData?.alignment || 0.95,
+            enemy.getType().toString(),
+            isCrit || false
+          );
 
-            // Emit kill event for HUD kill feed
-            eventBus.emit(GameEvent.ENEMY_DESTROYED, {
-              points,
-              combo: this.scoringSystem.getScoreInfo().combo,
-              crit: isCrit
-            });
+          // Emit kill event for HUD kill feed
+          eventBus.emit(GameEvent.ENEMY_DESTROYED, {
+            points,
+            combo: this.scoringSystem.getScoreInfo().combo,
+            crit: isCrit
+          });
 
-            // Enhanced destruction effects
-            EffectsAssets.createBurst(enemy.getPosition(), COLORS.THREAT_RED);
-            EffectsAssets.createEnemyFragmentation(enemy.getPosition(), COLORS.THREAT_RED);
-            this.combatSystem.createExplosion(
-              enemy.getPosition(),
-              COLORS.THREAT_RED,
-              this.scene.getThreeScene()
-            );
+          // Enhanced destruction effects
+          EffectsAssets.createBurst(enemy.getPosition(), COLORS.THREAT_RED);
+          EffectsAssets.createEnemyFragmentation(enemy.getPosition(), COLORS.THREAT_RED);
+          this.combatSystem.createExplosion(
+            enemy.getPosition(),
+            COLORS.THREAT_RED,
+            this.scene.getThreeScene()
+          );
 
-            // Critical hit gets extra effects
-            if (isCrit) {
-              eventBus.emit('effect:critical', {});
-            }
+          // Critical hit gets extra effects
+          if (isCrit) {
+            eventBus.emit('effect:critical', {});
+          }
 
-            this.waveManager.destroyEnemy(convergedTarget);
-            this.convergenceSystem.removeEnemy(convergedTarget);
+          this.waveManager.destroyEnemy(convergedTarget);
+          this.convergenceSystem.removeEnemy(convergedTarget);
+        }
+      }
+
+      // Check if boss target is hit (shield or core)
+      const boss = this.bossSystem.getCurrentBoss();
+      if (boss && this.bossSystem.isBossTarget(convergedTarget)) {
+        const wasDestroyed = this.bossSystem.damageTarget(convergedTarget);
+
+        // Visual feedback
+        const hitPos = this.bossSystem.getTargetPosition(convergedTarget);
+        if (hitPos) {
+          if (convergedTarget.includes('_shield_')) {
+            EffectsAssets.createBurst(hitPos, 0x00FFFF);
+          } else if (convergedTarget.includes('_core')) {
+            EffectsAssets.createBurst(hitPos, 0xFF0040);
           }
         }
 
-        // Check if boss target is hit (shield or core)
-        const boss = this.bossSystem.getCurrentBoss();
-        if (boss && this.bossSystem.isBossTarget(convergedTarget)) {
-          const wasDestroyed = this.bossSystem.damageTarget(convergedTarget);
+        if (wasDestroyed && !boss.isAlive()) {
+          // Boss defeated bonus
+          const bonusPoints = 5000;
+          this.scoringSystem.onEnemyDestroyed(1.0, 'boss', true);
+          eventBus.emit(GameEvent.ENEMY_DESTROYED, {
+            points: bonusPoints,
+            combo: 0,
+            crit: true
+          });
 
-          // Visual feedback
-          const hitPos = this.bossSystem.getTargetPosition(convergedTarget);
-          if (hitPos) {
-            if (convergedTarget.includes('_shield_')) {
-              EffectsAssets.createBurst(hitPos, 0x00FFFF);
-            } else if (convergedTarget.includes('_core')) {
-              EffectsAssets.createBurst(hitPos, 0xFF0040);
-            }
-          }
-
-          if (wasDestroyed && !boss.isAlive()) {
-            // Boss defeated bonus
-            const bonusPoints = 5000;
-            this.scoringSystem.onEnemyDestroyed(1.0, 'boss', true);
-            eventBus.emit(GameEvent.ENEMY_DESTROYED, {
-              points: bonusPoints,
-              combo: 0,
-              crit: true
-            });
-
-            // Spawn effect
-            EffectsAssets.createBurst(boss.getPosition(), COLORS.AMBER);
-          }
+          // Spawn effect
+          EffectsAssets.createBurst(boss.getPosition(), COLORS.AMBER);
         }
       }
     }
