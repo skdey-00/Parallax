@@ -231,16 +231,38 @@ class Game {
   private tryFire(): void {
     if (!this.isPlaying) return;
 
-    const convergedEnemy = this.convergenceSystem.getConvergedEnemy();
-    if (convergedEnemy) {
+    const convergedTarget = this.convergenceSystem.getConvergedEnemy();
+
+    // Check if converged on a power-up first
+    const powerUpId = this.powerUpSystem.checkCollection(
+      this.player.getAimPosition(),
+      this.camera.getThreeCamera()
+    );
+
+    if (powerUpId && convergedTarget === powerUpId) {
+      // Collect the power-up when space is pressed
+      this.powerUpSystem.collectPowerUp(powerUpId);
+      // Remove from convergence system
+      this.convergenceSystem.removeEnemy(powerUpId);
+      return;
+    }
+
+    if (!convergedTarget) return;
+
+    // Get convergence data for scoring
+    const convergenceData = this.convergenceSystem.getConvergenceData(convergedTarget);
+    const isCrit = convergenceData && convergenceData.alignment >= 0.98;
+
+    // Use weapon system to fire
+    if (this.weaponSystem.fire(this.player.getPosition(), convergedTarget)) {
       // Get convergence data for scoring
-      const convergenceData = this.convergenceSystem.getConvergenceData(convergedEnemy);
+      const convergenceData = this.convergenceSystem.getConvergenceData(convergedTarget);
       const isCrit = convergenceData && convergenceData.alignment >= 0.98;
 
       // Use weapon system to fire
-      if (this.weaponSystem.fire(this.player.getPosition(), convergedEnemy)) {
+      if (this.weaponSystem.fire(this.player.getPosition(), convergedTarget)) {
         // Check if enemy is destroyed
-        const enemy = this.waveManager.getEnemy(convergedEnemy);
+        const enemy = this.waveManager.getEnemy(convergedTarget);
         if (enemy) {
           const destroyed = enemy.takeDamage();
           if (destroyed) {
@@ -272,16 +294,27 @@ class Game {
               eventBus.emit('effect:critical', {});
             }
 
-            this.waveManager.destroyEnemy(convergedEnemy);
-            this.convergenceSystem.removeEnemy(convergedEnemy);
+            this.waveManager.destroyEnemy(convergedTarget);
+            this.convergenceSystem.removeEnemy(convergedTarget);
           }
         }
 
-        // Check if boss is hit
+        // Check if boss target is hit (shield or core)
         const boss = this.bossSystem.getCurrentBoss();
-        if (boss && boss.getId() === convergedEnemy) {
-          const bossDestroyed = boss.takeDamage();
-          if (bossDestroyed) {
+        if (boss && this.bossSystem.isBossTarget(convergedTarget)) {
+          const wasDestroyed = this.bossSystem.damageTarget(convergedTarget);
+
+          // Visual feedback
+          const hitPos = this.bossSystem.getTargetPosition(convergedTarget);
+          if (hitPos) {
+            if (convergedTarget.includes('_shield_')) {
+              EffectsAssets.createBurst(hitPos, 0x00FFFF);
+            } else if (convergedTarget.includes('_core')) {
+              EffectsAssets.createBurst(hitPos, 0xFF0040);
+            }
+          }
+
+          if (wasDestroyed && !boss.isAlive()) {
             // Boss defeated bonus
             const bonusPoints = 5000;
             this.scoringSystem.onEnemyDestroyed(1.0, 'boss', true);
@@ -539,12 +572,29 @@ class Game {
       // Update boss convergence (if boss is alive)
       const boss = this.bossSystem.getCurrentBoss();
       if (boss) {
-        const bossConvergenceData = this.convergenceSystem.calculateConvergence(
-          boss.getId(),
-          boss.getPosition(),
+        // Add boss shields and core to convergence system
+        const targetableIds = this.bossSystem.getTargetableIds();
+        targetableIds.forEach(targetId => {
+          const targetPos = this.bossSystem.getTargetPosition(targetId);
+          if (targetPos) {
+            this.convergenceSystem.calculateConvergence(
+              targetId,
+              targetPos,
+              playerAimPos
+            );
+          }
+        });
+      }
+
+      // Add power-ups to convergence system (so they can be collected)
+      const spawnedPowerUps = this.powerUpSystem.getSpawnedPowerUps();
+      spawnedPowerUps.forEach((spawn: any) => {
+        this.convergenceSystem.calculateConvergence(
+          spawn.id,
+          spawn.position,
           playerAimPos
         );
-      }
+      });
 
       // Update combat system (particles)
       this.combatSystem.update(delta, this.scene.getThreeScene());

@@ -456,6 +456,11 @@ export class HUD {
     eventBus.on('player:aim', (angle: number) => {
       this.updateAimIndicator(angle);
     });
+
+    // Narration messages for gameplay events
+    eventBus.on('narration:show', (text: string) => {
+      this.showNarration(text);
+    });
   }
 
   /**

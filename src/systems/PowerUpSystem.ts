@@ -136,6 +136,13 @@ export class PowerUpSystem {
   }
 
   /**
+   * Get all spawned power-ups for convergence system
+   */
+  getSpawnedPowerUps(): PowerUpSpawn[] {
+    return Array.from(this.spawnedPowerUps.values());
+  }
+
+  /**
    * Check if player's crosshair is over a power-up
    */
   checkCollection(aimPosition: THREE.Vector2, camera: THREE.Camera): string | null {

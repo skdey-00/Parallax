@@ -29,3 +29,5 @@ Thumbs.db
 # Temporary files
 output/
 nul
+
+.vercel
