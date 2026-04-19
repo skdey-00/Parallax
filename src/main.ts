@@ -25,6 +25,7 @@ import { SoundGenerator } from './audio/SoundGenerator.js';
 import { ScoringSystem } from './systems/ScoringSystem.js';
 import { POWER_UP_NAMES } from './core/PowerUpTypes.js';
 import { ABILITIES } from './systems/AbilitySystem.js';
+import { GameTutorial } from './systems/GameTutorial.js';
 
 class Game {
   private scene: GameScene;
@@ -35,6 +36,7 @@ class Game {
   private combatSystem: CombatSystem;
   private healthSystem: HealthSystem;
   private powerUpSystem: PowerUpSystem;
+  private gameTutorial: GameTutorial;
   private powerUpTutorial: PowerUpTutorial;
   private abilitySystem: AbilitySystem;
   private hazardSystem: HazardSystem;
@@ -71,6 +73,7 @@ class Game {
     this.combatSystem = new CombatSystem(this.scene.getThreeScene());
     this.healthSystem = new HealthSystem();
     this.powerUpSystem = new PowerUpSystem(this.scene.getThreeScene());
+    this.gameTutorial = new GameTutorial();
     this.powerUpTutorial = new PowerUpTutorial();
     this.abilitySystem = new AbilitySystem();
     this.hazardSystem = new HazardSystem(this.scene.getThreeScene());
@@ -96,13 +99,140 @@ class Game {
     // Handle window resize
     window.addEventListener('resize', () => this.onResize());
 
+    // Show tutorial first, then intro slideshow
+    setTimeout(() => {
+      this.gameTutorial.show();
+    }, 500);
+
     // Play intro slideshow before showing menu
     this.introSlideshow.play().then(() => {
       // Menu is already visible, intro just overlays it
     });
 
+    // Add help/pause toggle
+    this.setupHelpMenu();
+
     // Initial render
     this.render();
+  }
+
+  private setupHelpMenu(): void {
+    // Toggle help with H key or ESC during gameplay
+    window.addEventListener('keydown', (e) => {
+      if ((e.code === 'KeyH' || e.code === 'Escape') && this.isPlaying) {
+        e.preventDefault();
+        this.showHelpMenu();
+      }
+    });
+  }
+
+  private showHelpMenu(): void {
+    // Create help overlay
+    const help = document.createElement('div');
+    help.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 150;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    `;
+
+    help.innerHTML = `
+      <div style="
+        max-width: 600px;
+        width: 90%;
+        text-align: center;
+        padding: 40px;
+        background: rgba(20, 20, 30, 0.95);
+        border: 2px solid #40C0FF;
+        border-radius: 15px;
+      ">
+        <div style="color: #40C0FF; font-size: 32px; font-weight: bold; margin-bottom: 30px; text-shadow: 0 0 20px #40C0FF;">
+          GAME PAUSED
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; text-align: left;">
+          <div>
+            <div style="color: #40C0FF; font-size: 16px; margin-bottom: 10px;">🎯 CONTROLS</div>
+            <div style="color: #AAA; font-size: 13px; line-height: 1.8;">
+              <span style="color: #FFF;">MOUSE</span> - Aim<br>
+              <span style="color: #FFF;">SPACE/CLICK</span> - Fire when locked<br>
+              <span style="color: #FFF;">H or ESC</span> - Pause/Help
+            </div>
+          </div>
+
+          <div>
+            <div style="color: #FFB000; font-size: 16px; margin-bottom: 10px;">⚠️ HOW TO HIT</div>
+            <div style="color: #AAA; font-size: 13px; line-height: 1.8;">
+              Aim at enemies until<br>
+              crosshair turns <span style="color: #FF0040;">RED</span><br>
+              Then press SPACE to fire!
+            </div>
+          </div>
+        </div>
+
+        <div style="border-top: 1px solid #333; padding-top: 20px; margin-bottom: 20px;">
+          <div style="color: #FFB000; font-size: 14px; margin-bottom: 15px;">WHAT IS WHAT?</div>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center;">
+            <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px;">
+              <div style="font-size: 24px;">⬡</div>
+              <div style="color: #FFF; font-size: 11px;">ENEMY</div>
+              <div style="color: #666; font-size: 10px;">Shoot it</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px;">
+              <div style="font-size: 24px;">◇</div>
+              <div style="color: #FFB000; font-size: 11px;">HAZARD</div>
+              <div style="color: #666; font-size: 10px;">Destroy it!</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px;">
+              <div style="font-size: 24px;">◆</div>
+              <div style="color: #00FF00; font-size: 11px;">POWER-UP</div>
+              <div style="color: #666; font-size: 10px;">Collect it</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px;">
+              <div style="font-size: 24px;">⬢</div>
+              <div style="color: #FF0040; font-size: 11px;">BOSS</div>
+              <div style="color: #666; font-size: 10px;">Hit shields</div>
+            </div>
+          </div>
+        </div>
+
+        <button id="help-resume" style="
+          background: #40C0FF;
+          border: 2px solid #40C0FF;
+          color: #000;
+          padding: 15px 50px;
+          font-family: 'Share Tech Mono', monospace;
+          font-size: 18px;
+          font-weight: bold;
+          cursor: pointer;
+          border-radius: 8px;
+        ">▶ RESUME</button>
+
+        <div style="color: #444; font-size: 12px; margin-top: 20px;">
+          Press SPACE or click to resume
+        </div>
+      </div>
+    `;
+
+    document.getElementById('game-container')?.appendChild(help);
+
+    const resume = () => {
+      help.remove();
+    };
+
+    help.querySelector('#help-resume')?.addEventListener('click', resume);
+    help.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.code === 'Space' || e.code === 'Enter' || e.code === 'Escape') {
+        e.preventDefault();
+        resume();
+      }
+    });
   }
 
   private setupEventListeners(): void {
@@ -118,6 +248,11 @@ class Game {
       this.soundGenerator.playClickSound();
 
       this.startGame();
+    });
+
+    // Tutorial complete event
+    eventBus.on('tutorial:complete', () => {
+      // Tutorial is done, user can now start game
     });
 
     eventBus.on(GameEvent.GAME_OVER, () => {
@@ -374,6 +509,7 @@ class Game {
     this.scoringSystem.reset();
     this.healthSystem.reset();
     this.powerUpSystem.reset();
+    this.gameTutorial.reset();
     this.powerUpTutorial.reset();
     this.abilitySystem.reset();
     this.achievementSystem.reset();
@@ -776,6 +912,7 @@ class Game {
     this.combatSystem.dispose();
     this.healthSystem.dispose();
     this.powerUpSystem.dispose();
+    this.gameTutorial.dispose();
     this.powerUpTutorial.dispose();
     this.abilitySystem.dispose();
     this.hazardSystem.dispose();

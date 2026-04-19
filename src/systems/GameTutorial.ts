@@ -6,59 +6,94 @@ export class GameTutorial {
   private isActive: boolean = false;
   private hasSeenTutorial: boolean = false;
 
-  // Tutorial steps
+  // Tutorial steps with visual examples
   private steps: TutorialStep[] = [
     {
-      title: 'CONTROLS',
-      content: [
-        '<span style="color: #40C0FF">WASD / ARROWS</span> - Move your ship',
-        '<span style="color: #40C0FF">SPACE / CLICK</span> - Fire when locked on',
-        '<span style="color: #40C0FF">TAB</span> - Switch weapons',
-        '<span style="color: #40C0FF">H</span> - Toggle this help'
-      ],
+      title: 'YOUR SHIP',
+      content: `
+        <div style="display: flex; gap: 40px; align-items: center; margin: 20px 0;">
+          <div style="flex: 1;">
+            ${this.createShipSVG()}
+          </div>
+          <div style="flex: 1.5; text-align: left; line-height: 1.8;">
+            <div style="color: #40C0FF; font-size: 18px; margin-bottom: 10px;">YOU ARE HERE</div>
+            <div style="color: #AAA; font-size: 14px;">• Your ship stays in the <span style="color: #FFF;">center</span></div>
+            <div style="color: #AAA; font-size: 14px;">• Enemies move around YOU in 3D space</div>
+            <div style="color: #AAA; font-size: 14px;">• You CAN'T move - only <span style="color: #40C0FF;">AIM</span></div>
+          </div>
+        </div>
+      `,
       color: '#40C0FF'
     },
     {
-      title: 'CONVERGENCE MECHANIC',
-      content: [
-        'Enemies exist at different depths in 3D space',
-        '<span style="color: #FFB000">Move to align</span> your crosshair with enemies',
-        'Watch the <span style="color: #40C0FF">CONVERGENCE meter</span> at the top',
-        'At <span style="color: #FF0040">95%+</span> you\'ll see a <span style="color: #FF0040">red lock-on ring</span>',
-        '<span style="color: #40C0FF">Fire!</span> when locked to destroy enemies'
-      ],
+      title: 'HOW TO PLAY',
+      content: `
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin: 20px 0;">
+          <div style="background: rgba(64, 192, 255, 0.1); border: 1px solid #40C0FF; border-radius: 10px; padding: 20px;">
+            <div style="color: #40C0FF; font-size: 24px; margin-bottom: 15px;">🎯 AIM</div>
+            <div style="color: #CCC; font-size: 14px; line-height: 1.6;">
+              Move your <span style="color: #FFF;">MOUSE</span> to aim the crosshair at enemies
+            </div>
+          </div>
+          <div style="background: rgba(255, 0, 64, 0.1); border: 1px solid #FF0040; border-radius: 10px; padding: 20px;">
+            <div style="color: #FF0040; font-size: 24px; margin-bottom: 15px;">💥 FIRE</div>
+            <div style="color: #CCC; font-size: 14px; line-height: 1.6;">
+              Press <span style="color: #FFF; background: #333; padding: 2px 8px; border-radius: 4px;">SPACE</span> or <span style="color: #FFF; background: #333; padding: 2px 8px; border-radius: 4px;">CLICK</span> when locked on
+            </div>
+          </div>
+        </div>
+        <div style="color: #FFB000; font-size: 16px; margin-top: 20px;">
+          ⚠️ IMPORTANT: Wait for the <span style="color: #FF0040;">RED LOCK indicator</span> before firing!
+        </div>
+      `,
       color: '#FFB000'
     },
     {
-      title: 'ENEMY TYPES',
-      content: [
-        '<span style="color: #FF0040">Red spheres</span> - Basic enemies, dodge left/right',
-        '<span style="color: #FF8000">Orange pyramids</span> - Faster, dive toward you',
-        '<span style="color: #FF00FF">Magenta shapes</span> - Heavy, split into multiples',
-        'Enemies <span style="color: #40C0FF">move along Z-axis</span> (depth), not sideways!'
-      ],
-      color: '#FF0040'
+      title: 'WHAT IS WHAT?',
+      content: `
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin: 20px 0;">
+          ${this.createEntityCard('ENEMY', '⬡', '#FFFFFF', 'Basic enemy - Shoot it!', 'WHITE wireframe box')}
+          ${this.createEntityCard('HEAVY ENEMY', '⬢', '#FF0040', 'Takes 3 hits to destroy', 'RED with armor plates')}
+          ${this.createEntityCard('HAZARD', '◇', '#FFB000', 'DANGER! Shoot to destroy', 'YELLOW with red core - AVOID')}
+          ${this.createEntityCard('POWER-UP', '◆', '#00FF00', 'Collect for abilities', 'GREEN octahedron - helpful')}
+        </div>
+      `,
+      color: '#FFB000'
     },
     {
       title: 'POWER-UPS',
-      content: [
-        '<span style="color: #00FF00">Green</span> octahedrons = Speed boost',
-        '<span style="color: #00FFFF">Cyan</span> = Shield (blocks one hit)',
-        '<span style="color: #FF00FF">Magenta</span> = Spread shot (3x fire)',
-        '<span style="color: #FFFF00">Yellow</span> = Rapid fire',
-        'Align and press SPACE to collect!'
-      ],
+      content: `
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 20px 0;">
+          ${this.createPowerUpCard('SPEED', '#00FF00', 'Move cursor faster')}
+          ${this.createPowerUpCard('SHIELD', '#00FFFF', 'Blocks one hit')}
+          ${this.createPowerUpCard('SPREAD', '#FF8000', '3-way shot')}
+          ${this.createPowerUpCard('DAMAGE x2', '#FF00FF', 'Double damage')}
+          ${this.createPowerUpCard('RAPID FIRE', '#FFFF00', 'Faster shooting')}
+          ${this.createPowerUpCard('TIME SLOW', '#8000FF', 'Slow enemies')}
+        </div>
+        <div style="color: #AAA; font-size: 14px; margin-top: 20px;">
+          Aim at power-ups and fire to collect them!
+        </div>
+      `,
       color: '#00FF00'
     },
     {
       title: 'BOSS FIGHT',
-      content: [
-        '<span style="color: #00FFFF">STAGE 1:</span> Destroy orbiting shields',
-        'Each shield can be targeted individually',
-        '<span style="color: #00FFFF">STAGE 2:</span> Core exposed!',
-        '<span style="color: #FFFFFF">Shoot the white core</span> to damage boss',
-        'Shields regenerate on boss phase change!'
-      ],
+      content: `
+        <div style="display: flex; gap: 40px; align-items: center; margin: 20px 0;">
+          <div style="flex: 1;">
+            ${this.createBossSVG()}
+          </div>
+          <div style="flex: 1.5; text-align: left; line-height: 1.8;">
+            <div style="color: #00FFFF; font-size: 18px; margin-bottom: 10px;">PHASE 1: SHIELDS</div>
+            <div style="color: #AAA; font-size: 14px;">• Destroy all <span style="color: #00FFFF;">cyan orbiting spheres</span></div>
+            <div style="color: #AAA; font-size: 14px;">• Each shield can be targeted separately</div>
+            <div style="margin-top: 15px; color: #FF0040; font-size: 18px; margin-bottom: 10px;">PHASE 2: CORE</div>
+            <div style="color: #AAA; font-size: 14px;">• Core <span style="color: #FFFFFF;">exposes and turns WHITE</span></div>
+            <div style="color: #AAA; font-size: 14px;">• Shoot the core to damage boss!</div>
+          </div>
+        </div>
+      `,
       color: '#FF0040'
     }
   ];
@@ -72,14 +107,63 @@ export class GameTutorial {
     this.hasSeenTutorial = seen === 'true';
   }
 
-  show(): void {
-    if (this.hasSeenTutorial) return;
+  private createShipSVG(): string {
+    return `
+      <svg width="120" height="120" viewBox="0 0 120 120">
+        <polygon points="60,10 90,90 60,80 30,90" fill="none" stroke="#40C0FF" stroke-width="2"/>
+        <polygon points="60,30 75,70 60,65 45,70" fill="#40C0FF" opacity="0.5"/>
+        <circle cx="60" cy="60" r="5" fill="#40C0FF"/>
+      </svg>
+    `;
+  }
 
+  private createBossSVG(): string {
+    return `
+      <svg width="120" height="120" viewBox="0 0 120 120">
+        <polygon points="60,10 80,40 110,40 110,80 80,110 60,100 40,110 10,80 10,40 40,40"
+                  fill="none" stroke="#FF0040" stroke-width="2" opacity="0.5"/>
+        <polygon points="60,25 75,50 60,95 45,50" fill="#FF0040" opacity="0.3"/>
+        <circle cx="60" cy="60" r="15" fill="#FFFFFF" opacity="0.8"/>
+        <circle cx="30" cy="40" r="8" fill="#00FFFF" opacity="0.8"/>
+        <circle cx="90" cy="40" r="8" fill="#00FFFF" opacity="0.8"/>
+        <circle cx="60" cy="20" r="8" fill="#00FFFF" opacity="0.8"/>
+        <circle cx="30" cy="80" r="8" fill="#00FFFF" opacity="0.8"/>
+        <circle cx="90" cy="80" r="8" fill="#00FFFF" opacity="0.8"/>
+      </svg>
+    `;
+  }
+
+  private createEntityCard(name: string, icon: string, color: string, desc: string, detail: string): string {
+    return `
+      <div style="background: rgba(255,255,255,0.05); border: 1px solid ${color}; border-radius: 8px; padding: 15px; text-align: center;">
+        <div style="font-size: 32px; margin-bottom: 10px;">${icon}</div>
+        <div style="color: ${color}; font-size: 14px; font-weight: bold; margin-bottom: 5px;">${name}</div>
+        <div style="color: #CCC; font-size: 12px; margin-bottom: 5px;">${desc}</div>
+        <div style="color: #666; font-size: 11px;">${detail}</div>
+      </div>
+    `;
+  }
+
+  private createPowerUpCard(name: string, color: string, desc: string): string {
+    return `
+      <div style="background: rgba(255,255,255,0.05); border: 1px solid ${color}; border-radius: 8px; padding: 12px; text-align: center;">
+        <div style="width: 40px; height: 40px; margin: 0 auto 10px;">
+          <svg viewBox="0 0 40 40">
+            <polygon points="20,5 35,20 20,35 5,20" fill="none" stroke="${color}" stroke-width="2"/>
+            <polygon points="20,12 28,20 20,28 12,20" fill="${color}" opacity="0.5"/>
+          </svg>
+        </div>
+        <div style="color: ${color}; font-size: 13px; font-weight: bold; margin-bottom: 5px;">${name}</div>
+        <div style="color: #AAA; font-size: 11px;">${desc}</div>
+      </div>
+    `;
+  }
+
+  show(): void {
     this.isActive = true;
     this.currentStep = 0;
     this.createOverlay();
     this.showStep(0);
-    this.setupInput();
   }
 
   private createOverlay(): void {
@@ -93,7 +177,7 @@ export class GameTutorial {
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.9);
+      background: rgba(0, 0, 0, 0.95);
       z-index: 200;
       display: flex;
       justify-content: center;
@@ -102,6 +186,43 @@ export class GameTutorial {
     `;
 
     document.getElementById('game-container')?.appendChild(this.overlay);
+    this.injectStyles();
+  }
+
+  private injectStyles(): void {
+    if (document.getElementById('tutorial-styles')) return;
+
+    const style = document.createElement('style');
+    style.id = 'tutorial-styles';
+    style.textContent = `
+      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+      @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+      .tutorial-btn {
+        background: transparent;
+        border: 2px solid #40C0FF;
+        color: #40C0FF;
+        padding: 12px 30px;
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 16px;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin: 0 10px;
+      }
+      .tutorial-btn:hover {
+        background: #40C0FF;
+        color: #000;
+      }
+      .tutorial-btn-skip {
+        border-color: #444;
+        color: #444;
+      }
+      .tutorial-btn-skip:hover {
+        background: #444;
+        color: #FFF;
+      }
+    `;
+    document.head.appendChild(style);
   }
 
   private showStep(index: number): void {
@@ -111,75 +232,65 @@ export class GameTutorial {
     }
 
     const step = this.steps[index];
+    const isFirst = index === 0;
+    const isLast = index === this.steps.length - 1;
 
     this.overlay.innerHTML = `
       <div style="
-        max-width: 600px;
+        max-width: 700px;
         width: 90%;
         text-align: center;
         animation: slideUp 0.3s ease-out;
       ">
+        <!-- Progress bar -->
+        <div style="display: flex; gap: 5px; margin-bottom: 20px; justify-content: center;">
+          ${this.steps.map((_, i) => `
+            <div style="
+              width: ${i === index ? '30' : '8'}px;
+              height: 8px;
+              background: ${i === index ? step.color : '#333'};
+              border-radius: 4px;
+              transition: all 0.3s;
+            "></div>
+          `).join('')}
+        </div>
+
+        <!-- Title -->
         <div style="
           color: ${step.color};
           font-size: 36px;
           font-weight: bold;
           text-shadow: 0 0 20px ${step.color};
-          margin-bottom: 30px;
+          margin-bottom: 10px;
         ">${step.title}</div>
+
+        <!-- Content -->
         <div style="
           color: #CCC;
-          font-size: 16px;
-          line-height: 2;
-          margin-bottom: 30px;
-        ">
-          ${step.content.map(line => `<div style="margin: 8px 0;">${line}</div>`).join('')}
-        </div>
-        <div style="
-          display: flex;
-          gap: 20px;
-          justify-content: center;
-          margin-bottom: 20px;
-        ">
-          ${index > 0 ? `
-            <button id="tutorial-prev" style="
-              background: transparent;
-              border: 2px solid #666;
-              color: #666;
-              padding: 10px 30px;
-              font-family: 'Share Tech Mono', monospace;
-              font-size: 16px;
-              cursor: pointer;
-            ">◄ PREV</button>
-          ` : ''}
-          <button id="tutorial-next" style="
+          font-size: 14px;
+          margin-bottom: 25px;
+        ">${step.content}</div>
+
+        <!-- Buttons -->
+        <div style="display: flex; gap: 15px; justify-content: center; align-items: center; flex-wrap: wrap;">
+          ${!isFirst ? `<button class="tutorial-btn" id="tutorial-prev">◄ BACK</button>` : ''}
+          <button class="tutorial-btn" id="tutorial-next" style="
             background: ${step.color};
-            border: 2px solid ${step.color};
+            border-color: ${step.color};
             color: #000;
-            padding: 10px 30px;
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 16px;
-            cursor: pointer;
             font-weight: bold;
-          ">${index < this.steps.length - 1 ? 'NEXT ►' : 'START GAME'}</button>
-          ${index < this.steps.length - 1 ? `
-            <button id="tutorial-skip" style="
-              background: transparent;
-              border: 2px solid #444;
-              color: #444;
-              padding: 10px 30px;
-              font-family: 'Share Tech Mono', monospace;
-              font-size: 14px;
-              cursor: pointer;
-            ">SKIP ALL</button>
-          ` : ''}
+          ">${isLast ? '▶ START PLAYING' : 'NEXT ►'}</button>
+          ${!isLast ? `<button class="tutorial-btn tutorial-btn-skip" id="tutorial-skip">SKIP TUTORIAL</button>` : ''}
         </div>
-        <div style="color: #444; font-size: 12px;">
-          Step ${index + 1} of ${this.steps.length}
+
+        <!-- Keyboard hint -->
+        <div style="color: #444; font-size: 12px; margin-top: 25px;">
+          Use Arrow Keys or Space to navigate • ESC to skip
         </div>
       </div>
     `;
 
-    // Add event listeners
+    // Event listeners
     const nextBtn = this.overlay.querySelector('#tutorial-next') as HTMLElement;
     const prevBtn = this.overlay.querySelector('#tutorial-prev') as HTMLElement;
     const skipBtn = this.overlay.querySelector('#tutorial-skip') as HTMLElement;
@@ -206,7 +317,7 @@ export class GameTutorial {
 
     // Keyboard navigation
     const keyHandler = (e: KeyboardEvent) => {
-      if (e.code === 'ArrowRight' || e.code === 'Space') {
+      if (e.code === 'ArrowRight' || e.code === 'Space' || e.code === 'Enter') {
         e.preventDefault();
         goToNext();
       } else if (e.code === 'ArrowLeft') {
@@ -221,61 +332,7 @@ export class GameTutorial {
     document.addEventListener('keydown', keyHandler, { once: true });
   }
 
-  private setupInput(): void {
-    // Show tutorial when boss spawns
-    eventBus.on('boss:spawned', () => {
-      this.showBossReminder();
-    });
-  }
-
-  private showBossReminder(): void {
-    const reminder = document.createElement('div');
-    reminder.style.cssText = `
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(0, 0, 0, 0.9);
-      border: 2px solid #00FFFF;
-      border-radius: 10px;
-      padding: 20px 40px;
-      text-align: center;
-      z-index: 150;
-      animation: popIn 0.3s ease-out;
-    `;
-    reminder.innerHTML = `
-      <div style="color: #00FFFF; font-size: 20px; font-weight: bold; margin-bottom: 10px;">
-        BOSS INCOMING!
-      </div>
-      <div style="color: #CCC; font-size: 14px; line-height: 1.6;">
-        <span style="color: #00FFFF">1.</span> Destroy orbiting shields<br>
-        <span style="color: #00FFFF">2.</span> Shoot the exposed core<br>
-        <span style="color: #00FFFF">3.</span> Survive!
-      </div>
-    `;
-
-    document.getElementById('game-container')?.appendChild(reminder);
-
-    setTimeout(() => {
-      reminder.style.animation = 'fadeOut 0.5s ease-out forwards';
-      setTimeout(() => reminder.remove(), 500);
-    }, 4000);
-
-    // Add CSS
-    if (!document.getElementById('tutorial-animations')) {
-      const style = document.createElement('style');
-      style.id = 'tutorial-animations';
-      style.textContent = `
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        @keyframes popIn { 0% { transform: translate(-50%, -50%) scale(0); } 70% { transform: translate(-50%, -50%) scale(1.1); } 100% { transform: translate(-50%, -50%) scale(1); } }
-        @keyframes fadeOut { to { opacity: 0; } }
-      `;
-      document.head.appendChild(style);
-    }
-  }
-
-  private complete(): void {
+  complete(): void {
     this.isActive = false;
     this.hasSeenTutorial = true;
     localStorage.setItem('parallax_tutorial_seen', 'true');
@@ -287,6 +344,9 @@ export class GameTutorial {
         this.overlay = null;
       }, 300);
     }
+
+    // Emit event that tutorial is complete
+    eventBus.emit('tutorial:complete', {});
   }
 
   reset(): void {
@@ -301,6 +361,6 @@ export class GameTutorial {
 
 interface TutorialStep {
   title: string;
-  content: string[];
+  content: string;
   color: string;
 }
